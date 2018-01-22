@@ -18,7 +18,7 @@ def create_mask(seq_lens):
 
 class Dataset(object):
 
-    def __init__(self, data: dict, batch_size, cuda, volatile=False):
+    def __init__(self, data, batch_size, cuda, volatile=False):
         self.documents = data['documents']
         self.querys = data['querys']
         self.candidates = data['candidates']
@@ -70,7 +70,7 @@ class Dataset(object):
         else:
             answers = None
 
-        def wrap(b: torch.LongTensor):
+        def wrap(b):
             if b is None:
                 return b
             if len(b.size()) > 1:

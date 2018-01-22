@@ -109,7 +109,8 @@ class AoAReader(nn.Module):
                 document = docs_input[i].squeeze()
                 for j, candidate in enumerate(cands):
                     pointer = document == candidate.expand_as(document)
-                    pb.append(torch.sum(torch.masked_select(s[i].squeeze(), pointer), keepdim=True))
+                    #pb.append(torch.sum(torch.masked_select(s[i].squeeze(), pointer), keepdim=True))
+                    pb.append(torch.sum(torch.masked_select(s[i].squeeze(), pointer)))
                 pb = torch.cat(pb, dim=0).squeeze()
                 _ , max_loc = torch.max(pb, 0)
                 pred_answers.append(cands.index_select(0, max_loc))

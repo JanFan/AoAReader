@@ -72,7 +72,8 @@ if opt.gpu:
 
 def loss_func(answers, pred_answers, answer_probs):
     num_correct = (answers == pred_answers).sum().squeeze().data[0]
-    loss = - torch.mean(torch.log(answer_probs), keepdim=True)
+    #loss = - torch.mean(torch.log(answer_probs), keepdim=True)
+    loss = - torch.mean(torch.log(answer_probs))
     return loss.cuda(), num_correct
 
 def eval(model, data):
@@ -101,7 +102,7 @@ def eval(model, data):
     return total_loss / total, total_correct / total
 
 
-def trainModel(model, trainData, validData, optimizer: torch.optim.Adam):
+def trainModel(model, trainData, validData, optimizer):
     print(model)
     start_time = time.time()
 
@@ -178,7 +179,9 @@ def main():
     if opt.train_from:
         train_from = True
         checkpoint = torch.load(opt.train_from)
+        _ep = opt.epochs
         opt = checkpoint['opt']
+        opt.epochs = _ep
 
 
     print("Loading dictrionary from ", opt.dict)

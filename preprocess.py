@@ -8,9 +8,6 @@ from functools import reduce
 import itertools
 import time
 
-# parallel processing
-from joblib import Parallel, delayed
-
 import aoareader.Constants
 from aoareader.Dict import Dict as Vocabulary
 
@@ -18,7 +15,7 @@ from nltk.tokenize import word_tokenize
 
 from sys import argv
 
-data_path = 'data/'
+data_path = 'data/CBTest/data'
 data_filenames = {
         'train': 'train.txt',
         'valid': 'dev.txt',
@@ -39,7 +36,10 @@ def parse_stories(lines, with_answer=True):
         if not line:
             story = []
         else:
-            _, line = line.split(' ', 1)
+            try:
+                _, line = line.split(' ', 1)
+            except:
+                print('*'*10 + line)
             if line:
                 if '\t' in line:  # query line
                     answer = ''
@@ -65,7 +65,7 @@ def get_stories(story_lines, with_answer=True):
     return stories
 
 
-def vectorize_stories(stories, vocab : Vocabulary):
+def vectorize_stories(stories, vocab):
     X = []
     Q = []
     C = []
@@ -116,11 +116,11 @@ def main():
 
 
     with open(train_filename, 'r') as tf, open(valid_filename, 'r') as vf, open(test_filename, 'r') as tef:
-        tlines = tf.readlines()
+        tlines = tf.readlines()[:10000]
         vlines = vf.readlines()
         telines = tef.readlines()
-        train_stories, valid_stories, test_stories = Parallel(n_jobs=2)(delayed(get_stories)(story_lines)
-                                                          for story_lines in [tlines, vlines, telines])
+        train_stories, valid_stories, test_stories = [get_stories(story_lines)
+            for story_lines in [tlines, vlines, telines]]
 
 
     print('Preparing build dictionary ...')
@@ -131,8 +131,8 @@ def main():
     valid = {}
     test = {}
 
-    train_data, valid_data, test_data = Parallel(n_jobs=2)(delayed(vectorize_stories)(stories, vocab_dict)
-                                                for stories in [train_stories, valid_stories, test_stories])
+    train_data, valid_data, test_data = [vectorize_stories(stories, vocab_dict)
+                                                for stories in [train_stories, valid_stories, test_stories]]
     train['documents'], train['querys'], train['answers'], train['candidates'] = train_data
     valid['documents'], valid['querys'], valid['answers'], valid['candidates'] = valid_data
     test['documents'], test['querys'], test['answers'], test['candidates'] = test_data
@@ -145,4 +145,11 @@ def main():
     torch.save(test, test_filename + '.pt')
 
 if __name__ == '__main__':
+    data_filenames = {
+            'train': argv[1],
+            'valid': argv[2],
+            'test':  argv[3]
+            }
+    vocab_file = os.path.join(data_path, data_filenames['train']+'vocab.json')
+    dict_file = os.path.join(data_path, data_filenames['train']+'dict.pt')
     main()

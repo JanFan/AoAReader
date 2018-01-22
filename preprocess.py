@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # From https://github.com/nschuc/alternating-reader-tf/blob/master/load_data.py, some modifications are made
 
 import json
@@ -11,6 +12,7 @@ import time
 import aoareader.Constants
 from aoareader.Dict import Dict as Vocabulary
 
+from io import open
 from nltk.tokenize import word_tokenize
 
 from sys import argv
@@ -31,7 +33,7 @@ def tokenize(sentence):
 def parse_stories(lines, with_answer=True):
     stories = []
     story = []
-    for line in lines:
+    for idx, line in enumerate(lines):
         line = line.strip()
         if not line:
             story = []
@@ -55,6 +57,7 @@ def parse_stories(lines, with_answer=True):
                     stories.append((story, q, answer, candidates))
                 else:
                     story.append(tokenize(line))
+
     return stories
 
 
@@ -89,7 +92,7 @@ def vectorize_stories(stories, vocab):
 
 def build_dict(stories):
     if os.path.isfile(vocab_file):
-        with open(vocab_file, "r") as vf:
+        with open(vocab_file, "rt") as vf:
             word2idx = json.load(vf)
     else:
 
@@ -115,8 +118,8 @@ def main():
     test_filename = os.path.join(data_path, data_filenames['test'])
 
 
-    with open(train_filename, 'r') as tf, open(valid_filename, 'r') as vf, open(test_filename, 'r') as tef:
-        tlines = tf.readlines()[:10000]
+    with open(train_filename, 'rt') as tf, open(valid_filename, 'rt') as vf, open(test_filename, 'rt') as tef:
+        tlines = tf.readlines()
         vlines = vf.readlines()
         telines = tef.readlines()
         train_stories, valid_stories, test_stories = [get_stories(story_lines)

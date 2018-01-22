@@ -1,3 +1,5 @@
+from __future__ import division
+
 import aoareader as reader
 import torch
 import time

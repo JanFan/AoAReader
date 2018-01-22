@@ -75,21 +75,19 @@ class AoAReader(nn.Module):
         docs_outputs = docs_outputs[reverse_docs_idx.data]
         querys_outputs = querys_outputs[reverse_querys_idx.data]
 
-
         # transpose query for pair-wise dot product
         dos = docs_outputs
         doc_mask = doc_mask.unsqueeze(2)
-        qos = torch.transpose(querys_outputs, 1, 2)
         query_mask = query_mask.unsqueeze(2)
 
         # pair-wise matching score
-        M = torch.bmm(dos, qos)
+        M = torch.bmm(dos, querys_outputs.transpose(1, 2))
         M_mask = torch.bmm(doc_mask, query_mask.transpose(1, 2))
         # query-document attention
-        alpha = softmax_mask(M, M_mask, axis=1)
-        beta = softmax_mask(M, M_mask, axis=2)
+        alpha = softmax_mask(M, M_mask, axis=1) # d's att wrt w in q
+        beta = softmax_mask(M, M_mask, axis=2) # q's att wrt w in d
 
-        sum_beta = torch.sum(beta, dim=1, keepdim=True)
+        sum_beta = torch.sum(beta, dim=1, keepdim=True) # q's att wrt to all w in d
 
         docs_len = docs_len.unsqueeze(1).unsqueeze(2).expand_as(sum_beta)
         average_beta = sum_beta / docs_len.float()
@@ -110,7 +108,7 @@ class AoAReader(nn.Module):
                 for j, candidate in enumerate(cands):
                     pointer = document == candidate.expand_as(document)
                     #pb.append(torch.sum(torch.masked_select(s[i].squeeze(), pointer), keepdim=True))
-                    pb.append(torch.sum(torch.masked_select(s[i].squeeze(), pointer)))
+                    pb.append(torch.sum(torch.masked_select(s[i].squeeze(), pointer))) # sum, as this candidate may appear in d many times
                 pb = torch.cat(pb, dim=0).squeeze()
                 _ , max_loc = torch.max(pb, 0)
                 pred_answers.append(cands.index_select(0, max_loc))

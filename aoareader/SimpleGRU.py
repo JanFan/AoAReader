@@ -4,18 +4,89 @@ import warnings
 
 from torch.nn.parameter import Parameter
 from torch.nn.utils.rnn import PackedSequence
+import torch.nn.functional as F
 
 import torch.backends.cudnn as cudnn
-from torch.nn._functions.rnn import CudnnRNN, AutogradRNN
+from torch.nn._functions.rnn import CudnnRNN, AutogradRNN, variable_recurrent_factory, StackedRNN
+from torch.nn._functions.thnn import rnnFusedPointwise as fusedBackend
+
+
+def SimpleGRUCell(input, hidden, w_ih, w_hh, b_ih=None, b_hh=None):
+
+    # if input.is_cuda:
+    if False:
+        gi = F.linear(input, w_ih)
+        gh = F.linear(hidden, w_hh)
+        state = fusedBackend.GRUFused.apply
+        return state(gi, gh, hidden) if b_ih is None else state(gi, gh, hidden, b_ih, b_hh)
+
+    gi = F.linear(input, w_ih, b_ih)
+    gh = F.linear(hidden, w_hh, b_hh)
+    i_r, i_i, i_n = gi.chunk(3, 1)
+    h_r, h_i, h_n = gh.chunk(3, 1)
+
+    #resetgate = F.sigmoid(i_r + h_r)
+    inputgate = F.sigmoid(i_i + h_i)
+    #newgate = F.tanh(i_n + resetgate * h_n)
+    newgate = F.relu(i_n + h_n)
+    hy = newgate + inputgate * (hidden - newgate)
+
+    return hy
+
+
+def SimpleAutogradRNN(mode, input_size, hidden_size, num_layers=1, batch_first=False,
+                dropout=0, train=True, bidirectional=False, batch_sizes=None,
+                dropout_state=None, flat_weight=None):
+
+    if mode == 'RNN_RELU':
+        cell = RNNReLUCell
+    elif mode == 'RNN_TANH':
+        cell = RNNTanhCell
+    elif mode == 'LSTM':
+        cell = LSTMCell
+    elif mode == 'GRU':
+        cell = SimpleGRUCell
+    else:
+        raise Exception('Unknown mode: {}'.format(mode))
+
+    if batch_sizes is None:
+        rec_factory = Recurrent
+    else:
+        rec_factory = variable_recurrent_factory(batch_sizes)
+
+    if bidirectional:
+        layer = (rec_factory(cell), rec_factory(cell, reverse=True))
+    else:
+        layer = (rec_factory(cell),)
+
+    func = StackedRNN(layer,
+                      num_layers,
+                      (mode == 'LSTM'),
+                      dropout=dropout,
+                      train=train)
+
+    def forward(input, weight, hidden):
+        if batch_first and batch_sizes is None:
+            input = input.transpose(0, 1)
+
+        nexth, output = func(input, hidden, weight)
+
+        if batch_first and batch_sizes is None:
+            output = output.transpose(0, 1)
+
+        return output, nexth
+
+    return forward
 
 
 def SimpleRNN(*args, **kwargs):
 
     def forward(input, *fargs, **fkwargs):
-        if cudnn.is_acceptable(input.data):
+        #if cudnn.is_acceptable(input.data):
+        if False:
             func = CudnnRNN(*args, **kwargs)
         else:
-            func = AutogradRNN(*args, **kwargs)
+            func = SimpleAutogradRNN(*args, **kwargs)
 
         # Hack for the tracer that allows us to represent RNNs as single
         # nodes and export them to ONNX in this form
@@ -52,6 +123,8 @@ class SimpleRNNBase(torch.nn.Module):
         if mode == 'LSTM':
             gate_size = 4 * hidden_size
         elif mode == 'GRU':
+            gate_size = 3 * hidden_size
+        elif mode == 'SimpleGRU':
             gate_size = 3 * hidden_size
         else:
             gate_size = hidden_size
@@ -215,7 +288,7 @@ class SimpleRNNBase(torch.nn.Module):
             flat_weight = None
 
         self.check_forward_args(input, hx, batch_sizes)
-        func = self._backend.RNN(
+        func = self._backend.SimpleRNN(
             self.mode,
             self.input_size,
             self.hidden_size,

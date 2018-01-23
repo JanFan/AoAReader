@@ -6,6 +6,7 @@ from torch.nn.utils.rnn import pack_padded_sequence as pack
 import torch.nn.functional as F
 import torch.nn.init as weigth_init
 from aoareader import Constants
+from aoareader import SimpleGRU
 
 
 def sort_batch(data, seq_len):
@@ -44,7 +45,7 @@ class AoAReader(nn.Module):
         self.embedding.weight.data.uniform_(-0.05, 0.05)
 
         input_size = self.embed_dim
-        self.gru = nn.GRU(input_size, hidden_size=self.hidden_dim, dropout=dropout_rate,
+        self.gru = SimpleGRU.SimpleGRU(input_size, hidden_size=self.hidden_dim, dropout=dropout_rate,
                           bidirectional=bidirectional, batch_first=True)
 
         # try independent gru

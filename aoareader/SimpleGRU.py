@@ -13,6 +13,7 @@ from torch.nn._functions.thnn import rnnFusedPointwise as fusedBackend
 
 def SimpleGRUCell(input, hidden, w_ih, w_hh, b_ih=None, b_hh=None):
 
+    # @Jan
     # if input.is_cuda:
     if False:
         gi = F.linear(input, w_ih)
@@ -25,6 +26,7 @@ def SimpleGRUCell(input, hidden, w_ih, w_hh, b_ih=None, b_hh=None):
     i_r, i_i, i_n = gi.chunk(3, 1)
     h_r, h_i, h_n = gh.chunk(3, 1)
 
+    # @Jan
     #resetgate = F.sigmoid(i_r + h_r)
     inputgate = F.sigmoid(i_i + h_i)
     #newgate = F.tanh(i_n + resetgate * h_n)
@@ -45,6 +47,8 @@ def SimpleAutogradRNN(mode, input_size, hidden_size, num_layers=1, batch_first=F
     elif mode == 'LSTM':
         cell = LSTMCell
     elif mode == 'GRU':
+        # @Jan
+        #cell = GRUCell
         cell = SimpleGRUCell
     else:
         raise Exception('Unknown mode: {}'.format(mode))
@@ -82,6 +86,7 @@ def SimpleAutogradRNN(mode, input_size, hidden_size, num_layers=1, batch_first=F
 def SimpleRNN(*args, **kwargs):
 
     def forward(input, *fargs, **fkwargs):
+        # @Jan
         #if cudnn.is_acceptable(input.data):
         if False:
             func = CudnnRNN(*args, **kwargs)
@@ -124,8 +129,6 @@ class SimpleRNNBase(torch.nn.Module):
             gate_size = 4 * hidden_size
         elif mode == 'GRU':
             gate_size = 3 * hidden_size
-        elif mode == 'SimpleGRU':
-            gate_size = 3 * hidden_size
         else:
             gate_size = hidden_size
 
@@ -153,6 +156,7 @@ class SimpleRNNBase(torch.nn.Module):
         self.flatten_parameters()
         self.reset_parameters()
 
+        # @Jan
         self._backend.register_function('SimpleRNN', SimpleRNN)
 
     def flatten_parameters(self):
@@ -288,6 +292,8 @@ class SimpleRNNBase(torch.nn.Module):
             flat_weight = None
 
         self.check_forward_args(input, hx, batch_sizes)
+        # @Jan
+        #func = self._backend.RNN(
         func = self._backend.SimpleRNN(
             self.mode,
             self.input_size,
